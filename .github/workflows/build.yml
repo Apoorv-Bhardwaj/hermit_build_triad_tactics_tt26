@@ -1,0 +1,79 @@
+name: Build and validate Hermit submissions
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_ghcr:
+        description: Publish tested images to GHCR only if organizers accept that registry
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - id: targets
+        run: python3 scripts/matrix.py
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GAME: ${{ matrix.game }}
+      SOURCE_DIRECTORY: ${{ matrix.directory }}
+      SOURCE_REVISION: ${{ matrix.revision }}
+      SOURCE_REPOSITORY: ${{ matrix.repository }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require a read-only source repository token
+        env:
+          SOURCE_TOKEN: ${{ secrets.SUBMISSION_READ_TOKEN }}
+        run: |
+          if [ -z "$SOURCE_TOKEN" ]; then
+            echo 'Add the SUBMISSION_READ_TOKEN Actions secret with Contents read access to your private submission repositories.'
+            exit 1
+          fi
+      - name: Check out exact submission commit
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          token: ${{ secrets.SUBMISSION_READ_TOKEN }}
+          path: sources
+          persist-credentials: false
+      - name: Build offline and check restricted container
+        run: >-
+          python3 scripts/build_check.py --game "$GAME" --checkout sources
+          --directory "$SOURCE_DIRECTORY" --revision "$SOURCE_REVISION"
+          --repository "$SOURCE_REPOSITORY"
+      - name: Publish the tested image (optional)
+        if: ${{ inputs.publish_ghcr && matrix.game != 'chess' }}
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/publish.py --game "$GAME"
+      - name: Upload small reports, never images or credentials
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: hermit-${{ matrix.game }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/${{ matrix.game }}/
+          if-no-files-found: warn
+          retention-days: 3

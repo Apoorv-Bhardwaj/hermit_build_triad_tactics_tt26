@@ -1,0 +1,7 @@
+{
+  "targets": [
+    {"game": "chess", "repository": "Apoorv-Bhardwaj/triad_tactics", "revision": "7ce9f7fc171c00af38a55fae747bddda3ff97daa", "directory": "chess"},
+    {"game": "uno", "repository": "Apoorv-Bhardwaj/triad_tactics", "revision": "7ce9f7fc171c00af38a55fae747bddda3ff97daa", "directory": "uno"},
+    {"game": "bluff", "repository": "Apoorv-Bhardwaj/triad_tactics", "revision": "7ce9f7fc171c00af38a55fae747bddda3ff97daa", "directory": "bluff"}
+  ]
+}

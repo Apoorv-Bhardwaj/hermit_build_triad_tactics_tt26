@@ -1,0 +1,9 @@
+reports/
+sources/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.token
+*.tar
+*.zip
